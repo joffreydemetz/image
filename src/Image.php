@@ -9,6 +9,9 @@
 
 namespace JDZ\Image;
 
+use JDZ\Image\Thumb;
+use JDZ\Image\Pic;
+
 class Image
 {
   public string $basePath;
@@ -47,7 +50,7 @@ class Image
         if (true === \file_exists($thumbFullPath)) {
           $this->thumb = $this->thumbsFolder . '/' . $thumbName;
         } else {
-          $thumb = new \JDZ\Image\Thumb(
+          $thumb = new Thumb(
             $this->basePath,
             $this->targetWidth,
             $this->thumbsFolder,
@@ -101,20 +104,6 @@ class Image
 
     if ($style) {
       $pic->attrs['style'] = $style;
-    }
-
-    return $pic;
-  }
-
-  public function getAdminSelection(): \stdClass
-  {
-    $pic = new \stdClass;
-    $pic->valid = $this->source->valid;
-    if (true === $this->source->valid) {
-      $pic->source = $this->source->srcFile;
-      $pic->src = $this->baseUrl . $this->source->srcFile;
-      $pic->thumb = '' === $this->thumb ? '' : $this->baseUrl . $this->thumb;
-      $pic->orientation = $this->source->orientation;
     }
 
     return $pic;

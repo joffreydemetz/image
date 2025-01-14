@@ -79,7 +79,7 @@ class Thumb
 
       // remove file
       try {
-        $fs = new \Symfony\Component\Filesystem\Filesystem();
+        $fs = new Filesystem();
         $fs->remove($thumbFullPath);
 
         if (\file_exists($thumbFullPath)) {
