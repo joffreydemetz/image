@@ -1,183 +1,109 @@
-# JDZ Image Utilities
+# Image
 
-JDZ Image Utilities is a PHP library that provides various utilities for handling images, including thumbnail creation, image protection, and more.
-
-## Installation
-
-To install the library, use Composer:
-
-```sh
-composer require jdz/image
-```
-
-## Requirements
-PHP >= 8.1
-Symfony Filesystem ^6.4
-Symfony Finder ^6.4
-Imagine ^1.3
-
-## Usage
-
-*Protecting an Image
-
-To protect an image with a watermark:
-
-```php
-<?php
-require_once realpath(__DIR__ . '/../vendor/autoload.php');
-
-$basePath = realpath(__DIR__ . '/files/');
-$coyright = new \JDZ\Image\Copyright($basePath, 'protect', 'nepascopier.png', 'repeat');
-$coyright->protectImage('media/test.jpg');
-```
-
-*Unprotecting an Image
-
-To remove the watermark from an image:
-
-```php
-<?php
-require_once realpath(__DIR__ . '/../vendor/autoload.php');
-
-$basePath = realpath(__DIR__ . '/files/');
-$coyright = new \JDZ\Image\Copyright($basePath, 'protect', 'nepascopier.png', 'repeat');
-$coyright->unprotectImage('media/test.jpg');
-```
-
-*Creating a Thumbnail
-
-To create a thumbnail of an image:
-
-```php
-<?php
-require_once realpath(__DIR__ . '/../vendor/autoload.php');
-
-$basePath = realpath(__DIR__ . '/files/');
-$thumb = new \JDZ\Image\Thumb($basePath, 200, 'thumbs', 120);
-$thumb->thumbImage('media/test.jpg');
-```
-
-*Loading and Displaying an Image
-
-To load and display an image with lazy loading and caching:
-
-```php
-<?php
-require_once realpath(__DIR__ . '/../vendor/autoload.php');
-
-$basePath = realpath(__DIR__ . '/files/');
-$baseUrl = 'https://mywebsite.dot/';
-$thumbsFolder = 'thumbs';
-$cacheTime = 60;
-$thumbMaxWidth = 800;
-$defaultImage = 'images/default.jpg';
-
-$image = new \JDZ\Image\Image($basePath, $baseUrl, $thumbsFolder);
-$image->lazy = true;
-$image->cacheLife = $cacheTime;
-$image->targetWidth = $thumbMaxWidth;
-$image->load('media/test.jpg', $defaultImage);
-
-$pic = $image->getPic('My pic');
-echo (string)$pic;
-```
-
-I apologize for the inconvenience. Let's update the 
-
-README.md
-
- file with the new content:
-
-```markdown
-
-
-# JDZ Image Utilities
-
-JDZ Image Utilities is a PHP library that provides various utilities for handling images, including thumbnail creation, image protection, and more.
+JDZ Image utilities for thumbnail generation, watermark protection, and HTML rendering.
 
 ## Installation
 
-To install the library, use Composer:
-
-```sh
+```bash
 composer require jdz/image
 ```
 
 ## Requirements
 
-- PHP >= 8.1
-- Symfony Filesystem ^6.4
-- Symfony Finder ^6.4
+- PHP >= 8.2
+- Symfony Filesystem ^7.2
+- Symfony Finder ^7.2
 - Imagine ^1.3
+- GD extension
 
 ## Usage
 
-### Protecting an Image
-
-To protect an image with a watermark:
+### Loading and Displaying Images
 
 ```php
-require_once realpath(__DIR__ . '/../vendor/autoload.php');
+use JDZ\Image\Image;
 
-$basePath = realpath(__DIR__ . '/files/');
-$coyright = new \JDZ\Image\Copyright($basePath, 'protect', 'nepascopier.png', 'repeat');
-$coyright->protectImage('media/test.jpg');
+$image = new Image('/path/to/files', 'https://mywebsite.com/');
+$image->load('media/photo.jpg', 'media/default.jpg');
+
+$pic = $image->getPic('Photo description');
+echo (string)$pic;
+// <img src="https://mywebsite.com/media/photo.jpg" alt="Photo description" data-orientation="landscape" />
 ```
 
-### Unprotecting an Image
-
-To remove the watermark from an image:
+### Lazy Loading with Thumbnails
 
 ```php
-require_once realpath(__DIR__ . '/../vendor/autoload.php');
+use JDZ\Image\Image;
 
-$basePath = realpath(__DIR__ . '/files/');
-$coyright = new \JDZ\Image\Copyright($basePath, 'protect', 'nepascopier.png', 'repeat');
-$coyright->unprotectImage('media/test.jpg');
+$image = new Image('/path/to/files', 'https://mywebsite.com/', 'thumbs');
+$image->lazy = true;
+$image->targetWidth = 800;
+$image->cacheLife = 3600;
+$image->load('media/photo.jpg');
+
+$pic = $image->getPic('Photo');
+echo (string)$pic;
+// src points to thumbnail, data-src points to original
 ```
 
 ### Creating Thumbnails
 
-To create a thumbnail for an image:
-
 ```php
-require_once realpath(__DIR__ . '/../vendor/autoload.php');
+use JDZ\Image\Thumb;
 
-$basePath = realpath(__DIR__ . '/files/');
-$thumb = new \JDZ\Image\Thumb($basePath, 200, 'thumbs', 120);
-$thumb->thumbImage('media/test.jpg');
+$thumb = new Thumb('/path/to/files', 800, 'thumbs', 3600);
+$created = $thumb->thumbImage('media/photo.jpg');
+
+echo $thumb->thumbFile; // 'thumbs/media_photo-800.jpg'
 ```
 
-### Loading and Displaying Images
-
-To load and display an image:
+### Watermark Protection
 
 ```php
-require_once realpath(__DIR__ . '/../vendor/autoload.php');
+use JDZ\Image\Copyright;
 
-$basePath = realpath(__DIR__ . '/files/');
-$baseUrl = 'https://mywebsite.dot/';
-$thumbsFolder = 'thumbs';
-$cacheTime = 60;
-$thumbMaxWidth = 800;
-$defaultImage = 'images/default.jpg';
+$copyright = new Copyright('/path/to/files', 'protect', 'watermark.png', 'repeat');
 
-$image = new \JDZ\Image\Image($basePath, $baseUrl, $thumbsFolder);
-$image->lazy = true;
-$image->cacheLife = $cacheTime;
-$image->targetWidth = $thumbMaxWidth;
-$image->load('media/test.jpg', $defaultImage);
+// Apply watermark (original backed up to protect/ folder)
+$copyright->protectImage('media/photo.jpg');
 
-$pic = $image->getPic('My pic');
-echo (string)$pic;
+// Restore original
+$copyright->unprotectImage('media/photo.jpg');
+```
+
+### Filesystem Setup
+
+```php
+use JDZ\Image\Fs;
+
+$fs = new Fs('/path/to/files', 'media', 'thumbs', 'protect');
+$fs->check(); // Creates media/, thumbs/, protect/ folders if missing
+```
+
+### Image Info
+
+```php
+use JDZ\Image\Img;
+
+$img = new Img('/path/to/files', 'media/photo.jpg');
+
+if ($img->valid) {
+    echo $img->width;       // 1600
+    echo $img->height;      // 1200
+    echo $img->orientation;  // 'landscape'
+    echo $img->ext;          // 'jpg'
+}
+```
+
+## Testing
+
+```bash
+composer test
+# or
+vendor/bin/phpunit
 ```
 
 ## License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
-
-## Author
-
-- Joffrey Demetz - [joffreydemetz.com](https://joffreydemetz.com)
-
-For more examples, see the examples directory.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
