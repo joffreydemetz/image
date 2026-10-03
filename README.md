@@ -11,10 +11,10 @@ composer require jdz/image
 ## Requirements
 
 - PHP >= 8.2
-- Symfony Filesystem ^7.2
-- Symfony Finder ^7.2
+- Symfony Filesystem ^7.4
+- Symfony Finder ^7.4
 - Imagine ^1.3
-- GD extension
+- GD extension (thumbnails, and Imagine's GD driver for watermarks — not declared in `composer.json`)
 
 ## Usage
 
@@ -103,6 +103,12 @@ composer test
 # or
 vendor/bin/phpunit
 ```
+
+## Changelog
+
+- **1.0.2** - PHP >= 8.2, Symfony ^7.4; unit test suite. No code change.
+- **1.0.1** - Symfony components ^7.2; the `Build` class is removed.
+- **1.0.0** - Initial release.
 
 ## License
 
