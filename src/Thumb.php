@@ -160,7 +160,7 @@ class Thumb
     string $thumbFullPath,
     int $targetWidth,
     int $targetHeight,
-    string $imageType
+    int $imageType
   ) {
     if ($imageType == \IMAGETYPE_JPEG) {
       $image = \imagecreatefromjpeg($srcFulPath);

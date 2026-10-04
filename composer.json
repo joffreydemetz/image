@@ -20,6 +20,7 @@
     ],
     "require": {
         "php": ">=8.2",
+        "ext-gd": "*",
         "symfony/filesystem": "^7.4",
         "symfony/finder": "^7.4",
         "imagine/imagine": "^1.3"

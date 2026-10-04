@@ -14,7 +14,7 @@ composer require jdz/image
 - Symfony Filesystem ^7.4
 - Symfony Finder ^7.4
 - Imagine ^1.3
-- GD extension (thumbnails, and Imagine's GD driver for watermarks — not declared in `composer.json`)
+- `ext-gd` (thumbnails, and Imagine's GD driver for watermarks)
 
 ## Usage
 
@@ -106,6 +106,7 @@ vendor/bin/phpunit
 
 ## Changelog
 
+- **1.0.3** - PNG thumbnails keep their transparency (the image type was compared as a string, so the alpha channel was never saved); `ext-gd` declared.
 - **1.0.2** - PHP >= 8.2, Symfony ^7.4; unit test suite. No code change.
 - **1.0.1** - Symfony components ^7.2; the `Build` class is removed.
 - **1.0.0** - Initial release.

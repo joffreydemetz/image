@@ -156,4 +156,18 @@ class ThumbTest extends ImageTestCase
         $this->assertTrue($thumb->thumbed);
         $this->assertStringContainsString('media_photos_pic-800', $thumb->thumbFile);
     }
+
+    public function testPngThumbnailKeepsTransparency(): void
+    {
+        // createPng() writes a fully transparent image
+        $this->createPng('clear.png', 1000, 500);
+
+        $thumb = new Thumb($this->tempDir, 200);
+        $thumb->thumbImage('clear.png');
+
+        $png = imagecreatefrompng($this->tempDir . '/' . $thumb->thumbFile);
+        $alpha = (imagecolorat($png, 10, 10) >> 24) & 0x7F;
+
+        $this->assertSame(127, $alpha, 'the thumb pixel should stay fully transparent');
+    }
 }
