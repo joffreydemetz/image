@@ -106,6 +106,7 @@ vendor/bin/phpunit
 
 ## Changelog
 
+- **1.0.4** - `getPic()` in lazy mode no longer crashes on a picture too small for a thumb; removing the thumbs of `photo.jpg` no longer removes those of `photo-2.jpg`; a BMP / WebP source is a clear "Unsupported image type" error; `Copyright` accepts an upper-case extension.
 - **1.0.3** - PNG thumbnails keep their transparency (the image type was compared as a string, so the alpha channel was never saved); `ext-gd` declared.
 - **1.0.2** - PHP >= 8.2, Symfony ^7.4; unit test suite. No code change.
 - **1.0.1** - Symfony components ^7.2; the `Build` class is removed.
