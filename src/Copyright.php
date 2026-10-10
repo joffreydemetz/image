@@ -120,7 +120,7 @@ class Copyright
     }
 
     $fi = new \SplFileInfo($source);
-    $ext = $fi->getExtension();
+    $ext = \strtolower($fi->getExtension());
 
     if (!in_array($ext, $authExts)) {
       throw new \Exception('Source file is not an image !');

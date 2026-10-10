@@ -3,6 +3,7 @@
 namespace JDZ\Image\Tests;
 
 use JDZ\Image\Copyright;
+use PHPUnit\Framework\Attributes\DataProvider;
 
 class CopyrightTest extends ImageTestCase
 {
@@ -12,33 +13,82 @@ class CopyrightTest extends ImageTestCase
         $this->fs->mkdir($this->tempDir . '/protect');
     }
 
-    public function testConstructorDefaults(): void
+    public static function failureProvider(): array
     {
-        $copyright = new Copyright($this->tempDir);
-
-        $this->assertEquals($this->tempDir, $copyright->basePath);
-        $this->assertEquals('protect', $copyright->originalsFolder);
-        $this->assertEquals('nepascopier.png', $copyright->watermarkFile);
-        $this->assertEquals('repeat', $copyright->copyrightType);
+        return [
+            'protect a missing source' => [
+                static fn (self $test) => (new Copyright($test->tempDir))->protectImage('nonexistent.jpg'),
+                'Source file "nonexistent.jpg" not found !',
+            ],
+            'protect a non-image source' => [
+                static function (self $test) {
+                    file_put_contents($test->tempDir . '/text.txt', 'not an image');
+                    (new Copyright($test->tempDir))->protectImage('text.txt');
+                },
+                'Source file "text.txt" has an invalid mime type !',
+            ],
+            'protect an image with an unlisted extension' => [
+                static function (self $test) {
+                    $test->createJpeg('photo.bmp');
+                    (new Copyright($test->tempDir))->protectImage('photo.bmp');
+                },
+                'Source file is not an image !',
+            ],
+            'protect with a missing watermark' => [
+                static function (self $test) {
+                    $test->createJpeg('photo.jpg');
+                    (new Copyright($test->tempDir))->protectImage('photo.jpg');
+                },
+                'Source file "nepascopier.png" not found !',
+            ],
+            'protect with a non-png watermark' => [
+                static function (self $test) {
+                    $test->createJpeg('photo.jpg');
+                    $test->createJpeg('mark.jpg', 30, 30);
+                    (new Copyright($test->tempDir, 'protect', 'mark.jpg'))->protectImage('photo.jpg');
+                },
+                'Source file is not an image !',
+            ],
+            'protect with a corrupt watermark' => [
+                static function (self $test) {
+                    $test->createJpeg('photo.jpg');
+                    $test->createSolidPng('mark.png', 30, 30, 255, 0, 0);
+                    // keep the PNG signature and header, drop the pixel data
+                    $test->fs->dumpFile($test->tempDir . '/bad.png', substr(file_get_contents($test->tempDir . '/mark.png'), 0, 40));
+                    (new Copyright($test->tempDir, 'protect', 'bad.png'))->protectImage('photo.jpg');
+                },
+                "Error watermarking the source\nUnable to open image {base}/bad.png",
+            ],
+            'unprotect a missing source' => [
+                static fn (self $test) => (new Copyright($test->tempDir))->unprotectImage('nonexistent.jpg'),
+                'Source file "nonexistent.jpg" not found !',
+            ],
+            'unprotect without a backup' => [
+                static function (self $test) {
+                    $test->createJpeg('photo.jpg');
+                    (new Copyright($test->tempDir))->unprotectImage('photo.jpg');
+                },
+                'File cannot be unprotected .. Original file not found',
+            ],
+            'unprotect from an unreadable backup' => [
+                static function (self $test) {
+                    $test->createJpeg('photo.jpg');
+                    // a folder where the backup file should be
+                    $test->fs->mkdir($test->tempDir . '/protect/photo.jpg');
+                    (new Copyright($test->tempDir))->unprotectImage('photo.jpg');
+                },
+                "Error reverting to the original version of the source\nFailed to copy \"{base}/protect/photo.jpg\" because file does not exist.",
+            ],
+        ];
     }
 
-    public function testProtectImageThrowsOnMissingFile(): void
+    #[DataProvider('failureProvider')]
+    public function testFailureThrowsWithExactMessage(\Closure $act, string $message): void
     {
         $this->expectException(\Exception::class);
-        $this->expectExceptionMessage('not found');
+        $this->expectExactExceptionMessage(str_replace('{base}', $this->tempDir, $message));
 
-        $copyright = new Copyright($this->tempDir);
-        $copyright->protectImage('nonexistent.jpg');
-    }
-
-    public function testProtectImageThrowsOnNonImageFile(): void
-    {
-        file_put_contents($this->tempDir . '/text.txt', 'not an image');
-
-        $this->expectException(\Exception::class);
-
-        $copyright = new Copyright($this->tempDir);
-        $copyright->protectImage('text.txt');
+        $act($this);
     }
 
     public function testProtectAndUnprotectImage(): void
@@ -68,15 +118,58 @@ class CopyrightTest extends ImageTestCase
         $this->assertFileDoesNotExist($this->tempDir . '/protect/photo.jpg');
     }
 
-    public function testUnprotectThrowsWhenNoBackupExists(): void
+    public function testRepeatModeTilesTheWatermark(): void
     {
-        $this->createJpeg('photo.jpg', 200, 100);
+        $this->createSolidJpeg('photo.jpg', 200, 100, 0, 0, 255);
+        $this->createSolidPng('mark.png', 30, 30, 255, 0, 0);
 
-        $this->expectException(\Exception::class);
-        $this->expectExceptionMessage('Original file not found');
+        (new Copyright($this->tempDir, 'protect', 'mark.png'))->protectImage('photo.jpg');
 
-        $copyright = new Copyright($this->tempDir);
+        // a tile every 30 + 10 px on both axes, from 0,0
+        [$red, , $blue] = $this->jpegPixel('photo.jpg', 5, 5);
+        $this->assertGreaterThan(200, $red);
+        $this->assertLessThan(60, $blue);
+
+        [$red, , $blue] = $this->jpegPixel('photo.jpg', 45, 45);
+        $this->assertGreaterThan(200, $red);
+        $this->assertLessThan(60, $blue);
+
+        // the 10 px gap between two tiles keeps the source
+        [$red, , $blue] = $this->jpegPixel('photo.jpg', 35, 5);
+        $this->assertLessThan(60, $red);
+        $this->assertGreaterThan(200, $blue);
+    }
+
+    public function testNonRepeatModeBacksUpButPastesNoWatermark(): void
+    {
+        $this->createSolidJpeg('photo.jpg', 200, 100, 0, 0, 255);
+        $this->createSolidPng('mark.png', 30, 30, 255, 0, 0);
+        $originalContent = file_get_contents($this->tempDir . '/photo.jpg');
+
+        $copyright = new Copyright($this->tempDir, 'protect', 'mark.png', 'center');
+        $copyright->protectImage('photo.jpg');
+
+        // the original is kept aside ...
+        $this->assertSame($originalContent, file_get_contents($this->tempDir . '/protect/photo.jpg'));
+
+        // ... but only 'repeat' pastes anything: the pixel under the first tile is untouched
+        [$red, , $blue] = $this->jpegPixel('photo.jpg', 5, 5);
+        $this->assertLessThan(60, $red);
+        $this->assertGreaterThan(200, $blue);
+
         $copyright->unprotectImage('photo.jpg');
+        $this->assertSame($originalContent, file_get_contents($this->tempDir . '/photo.jpg'));
+    }
+
+    public function testProtectAcceptsAnUppercaseExtension(): void
+    {
+        $this->createJpeg('photo.JPG', 200, 100);
+        $this->createPng('watermark.png', 50, 50);
+        $originalContent = file_get_contents($this->tempDir . '/photo.JPG');
+
+        (new Copyright($this->tempDir, 'protect', 'watermark.png'))->protectImage('photo.JPG');
+
+        $this->assertSame($originalContent, file_get_contents($this->tempDir . '/protect/photo.JPG'));
     }
 
     public function testProtectDoesNotOverwriteExistingBackup(): void

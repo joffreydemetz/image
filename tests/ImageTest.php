@@ -3,7 +3,6 @@
 namespace JDZ\Image\Tests;
 
 use JDZ\Image\Image;
-use JDZ\Image\Pic;
 
 class ImageTest extends ImageTestCase
 {
@@ -13,29 +12,17 @@ class ImageTest extends ImageTestCase
         $this->fs->mkdir($this->tempDir . '/thumbs');
     }
 
-    public function testConstructor(): void
-    {
-        $image = new Image($this->tempDir, 'https://cdn.com/');
-
-        $this->assertEquals($this->tempDir, $image->basePath);
-        $this->assertEquals('https://cdn.com/', $image->baseUrl);
-        $this->assertEquals('thumbs', $image->thumbsFolder);
-        $this->assertFalse($image->lazy);
-        $this->assertFalse($image->exists);
-        $this->assertFalse($image->valid);
-    }
-
     public function testLoadValidImage(): void
     {
         $this->createJpeg('photo.jpg', 800, 600);
 
         $image = new Image($this->tempDir, 'https://cdn.com/');
-        $result = $image->load('photo.jpg');
+        $image->load('photo.jpg');
 
         $this->assertTrue($image->valid);
         $this->assertTrue($image->exists);
-        $this->assertNotNull($image->source);
-        $this->assertSame($image, $result);
+        $this->assertSame('photo.jpg', $image->source->srcFile);
+        $this->assertNull($image->thumb);
     }
 
     public function testLoadInvalidImageWithDefault(): void
@@ -43,10 +30,13 @@ class ImageTest extends ImageTestCase
         $this->createJpeg('default.jpg', 100, 100);
 
         $image = new Image($this->tempDir, 'https://cdn.com/');
+        $image->lazy = true;
         $image->load('missing.jpg', 'default.jpg');
 
         $this->assertTrue($image->valid);
         $this->assertFalse($image->exists);
+        $this->assertFalse($image->lazy, 'a default image is never lazy-loaded');
+        $this->assertSame('default.jpg', $image->source->srcFile);
     }
 
     public function testLoadInvalidImageNoDefault(): void
@@ -68,7 +58,23 @@ class ImageTest extends ImageTestCase
         $image->load('photo.jpg');
 
         $this->assertTrue($image->valid);
-        $this->assertNotNull($image->thumb);
+        $this->assertSame('thumbs/_photo-800.jpg', $image->thumb);
+        $this->assertFileExists($this->tempDir . '/thumbs/_photo-800.jpg');
+    }
+
+    public function testLoadWithLazyReusesAnExistingThumb(): void
+    {
+        $this->createJpeg('photo.jpg', 1600, 1200);
+        // whatever sits at the thumb path is taken as is, never rebuilt
+        $this->createJpeg('thumbs/_photo-800.jpg', 10, 10);
+        $existing = file_get_contents($this->tempDir . '/thumbs/_photo-800.jpg');
+
+        $image = new Image($this->tempDir, 'https://cdn.com/');
+        $image->lazy = true;
+        $image->load('photo.jpg');
+
+        $this->assertSame('thumbs/_photo-800.jpg', $image->thumb);
+        $this->assertSame($existing, file_get_contents($this->tempDir . '/thumbs/_photo-800.jpg'));
     }
 
     public function testLoadWithLazySmallImageNoThumb(): void
@@ -81,25 +87,37 @@ class ImageTest extends ImageTestCase
         $image->load('small.jpg');
 
         $this->assertTrue($image->valid);
+        $this->assertNull($image->thumb);
     }
 
-    public function testGetPicReturnsValidPic(): void
+    public function testGetPicWithLazyThumbUsesTheThumbAsSrc(): void
     {
-        $this->createJpeg('photo.jpg', 800, 600);
+        $this->createJpeg('photo.jpg', 1600, 1200);
 
         $image = new Image($this->tempDir, 'https://cdn.com/');
-        $image->load('photo.jpg');
+        $image->lazy = true;
+        $pic = $image->load('photo.jpg')->getPic('Alt');
 
-        $pic = $image->getPic('My photo');
+        $this->assertSame('https://cdn.com/thumbs/_photo-800.jpg', $pic->attrs['src']);
+        $this->assertSame('https://cdn.com/photo.jpg', $pic->dataAttrs['src']);
+    }
 
-        $this->assertInstanceOf(Pic::class, $pic);
-        $this->assertEquals('My photo', $pic->alt);
-        $this->assertEquals('https://cdn.com/', $pic->baseUrl);
+    public function testGetPicWithLazySmallImageUsesTheSourceAsSrc(): void
+    {
+        $this->createJpeg('small.jpg', 400, 300);
+
+        $image = new Image($this->tempDir, 'https://cdn.com/');
+        $image->lazy = true;
+        $pic = $image->load('small.jpg')->getPic('Alt');
+
+        $this->assertSame('https://cdn.com/small.jpg', $pic->attrs['src']);
+        $this->assertArrayNotHasKey('src', $pic->dataAttrs);
     }
 
     public function testGetPicThrowsOnInvalidSource(): void
     {
         $this->expectException(\Exception::class);
+        $this->expectExactExceptionMessage('Cannot export an invalid image ..');
 
         $image = new Image($this->tempDir, 'https://cdn.com/');
         $image->load('missing.jpg');

@@ -93,7 +93,7 @@ class Image
     $pic = new Pic($img, $alt, $baseUrl);
 
     if (true === $this->lazy) {
-      $pic->thumb = $this->thumb;
+      $pic->thumb = $this->thumb ?? '';
     }
 
     $pic->load();

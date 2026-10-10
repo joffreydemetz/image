@@ -142,7 +142,7 @@ class Thumb
   {
     $finder = new Finder();
     $finder->files()
-      ->name('/^' . preg_quote($baseThumbName) . '-.*$/')
+      ->name('/^' . preg_quote($baseThumbName, '/') . '-\d+\.[^.]*$/')
       ->in($this->basePath . '/' . $this->thumbsFolder);
 
     $thumbs = [];
@@ -168,6 +168,8 @@ class Thumb
       $image = \imagecreatefrompng($srcFulPath);
     } elseif ($imageType == \IMAGETYPE_GIF) {
       $image = \imagecreatefromgif($srcFulPath);
+    } else {
+      throw new \Exception('Unsupported image type ' . \image_type_to_mime_type($imageType));
     }
 
     $x = \imagesx($image);
