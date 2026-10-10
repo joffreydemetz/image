@@ -3,39 +3,22 @@
 namespace JDZ\Image\Tests;
 
 use JDZ\Image\Fs;
+use PHPUnit\Framework\Attributes\DataProvider;
 
 class FsTest extends ImageTestCase
 {
-    public function testConstructorDefaults(): void
-    {
-        $fs = new Fs($this->tempDir);
-
-        $this->assertEquals($this->tempDir, $fs->basePath);
-        $this->assertEquals('media', $fs->mediasFolder);
-        $this->assertEquals('thumbs', $fs->thumbsFolder);
-        $this->assertEquals('protect', $fs->copyrightsFolder);
-    }
-
-    public function testConstructorCustomFolders(): void
-    {
-        $fs = new Fs($this->tempDir, 'images', 'cache', 'originals');
-
-        $this->assertEquals('images', $fs->mediasFolder);
-        $this->assertEquals('cache', $fs->thumbsFolder);
-        $this->assertEquals('originals', $fs->copyrightsFolder);
-    }
-
     public function testCheckCreatesFolders(): void
     {
         $fs = new Fs($this->tempDir);
 
         ob_start();
         $fs->check();
-        ob_end_clean();
+        $output = ob_get_clean();
 
         $this->assertDirectoryExists($this->tempDir . '/media');
         $this->assertDirectoryExists($this->tempDir . '/thumbs');
         $this->assertDirectoryExists($this->tempDir . '/protect');
+        $this->assertSame("create folder /media/\ncreate folder /thumbs/\ncreate folder /protect/\n", $output);
     }
 
     public function testCheckWithCustomFolders(): void
@@ -66,21 +49,20 @@ class FsTest extends ImageTestCase
         $this->assertEmpty($output);
     }
 
-    public function testCheckThrowsOnEmptyBasePath(): void
+    public static function invalidBasePathProvider(): array
     {
-        $this->expectException(\LogicException::class);
-        $this->expectExceptionMessage('basePath cannot be empty');
-
-        $fs = new Fs('');
-        $fs->check();
+        return [
+            'empty' => ['', 'basePath cannot be empty'],
+            'missing folder' => ['/nonexistent/path/xyz', 'basePath "/nonexistent/path/xyz" does not exist'],
+        ];
     }
 
-    public function testCheckThrowsOnInvalidBasePath(): void
+    #[DataProvider('invalidBasePathProvider')]
+    public function testCheckThrowsOnInvalidBasePath(string $basePath, string $message): void
     {
         $this->expectException(\LogicException::class);
-        $this->expectExceptionMessage('does not exist');
+        $this->expectExactExceptionMessage($message);
 
-        $fs = new Fs('/nonexistent/path/xyz');
-        $fs->check();
+        (new Fs($basePath))->check();
     }
 }

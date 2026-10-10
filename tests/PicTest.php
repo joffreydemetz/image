@@ -7,21 +7,6 @@ use JDZ\Image\Pic;
 
 class PicTest extends ImageTestCase
 {
-    public function testConstructorExtractsImageProperties(): void
-    {
-        $this->createJpeg('photo.jpg', 800, 600);
-        $img = new Img($this->tempDir, 'photo.jpg');
-
-        $pic = new Pic($img, 'A photo', 'https://example.com/');
-
-        $this->assertEquals('photo.jpg', $pic->src);
-        $this->assertEquals('A photo', $pic->alt);
-        $this->assertEquals('https://example.com/', $pic->baseUrl);
-        $this->assertEquals(800, $pic->width);
-        $this->assertEquals(600, $pic->height);
-        $this->assertEquals('landscape', $pic->orientation);
-    }
-
     public function testLoadSetsAttrs(): void
     {
         $this->createJpeg('photo.jpg', 800, 600);
@@ -74,20 +59,28 @@ class PicTest extends ImageTestCase
         $this->assertArrayNotHasKey('height', $pic->attrs);
     }
 
-    public function testToAttributesReturnsArray(): void
+    public function testToAttributesRendersScalarValues(): void
     {
         $this->createJpeg('photo.jpg', 800, 600);
         $img = new Img($this->tempDir, 'photo.jpg');
 
-        $pic = new Pic($img, 'My photo');
+        $pic = new Pic($img, '');
+        $pic->forceSize = true;
         $pic->load();
+        $pic->attrs['title'] = '  padded  ';
+        $pic->attrs['draggable'] = false;
+        $pic->dataAttrs['zoom'] = true;
 
-        $attrs = $pic->toAttributes();
-
-        $this->assertIsArray($attrs);
-        $this->assertArrayHasKey('src', $attrs);
-        $this->assertArrayHasKey('alt', $attrs);
-        $this->assertArrayHasKey('data-orientation', $attrs);
+        $this->assertSame([
+            'src' => 'photo.jpg',
+            'alt' => '',
+            'width' => '800',
+            'height' => '600',
+            'title' => 'padded',
+            'draggable' => 'false',
+            'data-orientation' => 'landscape',
+            'data-zoom' => 'true',
+        ], $pic->toAttributes());
     }
 
     public function testToStringRendersImgTag(): void
